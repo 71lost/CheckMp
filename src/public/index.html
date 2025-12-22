@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checker Raridade</title>
+  <style>
+    body { 
+      background:#013b4d; 
+      color:#fff; 
+      font-family:Arial,sans-serif; 
+      text-align:center; 
+      padding:20px; 
+      margin:0;
+    }
+    h1 { 
+      color:rgb(147, 188, 196); 
+      margin-bottom:10px; 
+      font-size:2rem;
+    }
+    textarea { 
+      width:100%; 
+      max-width:600px; 
+      height:120px; 
+      background:#222; 
+      color:#0f0; 
+      border:none; 
+      padding:10px; 
+      font-size:14px; 
+      border-radius:5px; 
+      resize:vertical;
+    }
+    .btn { 
+      padding:10px 20px; 
+      margin:10px 5px; 
+      font-size:1rem; 
+      font-weight:bold; 
+      border:none; 
+      border-radius:5px; 
+      cursor:pointer; 
+      min-width:100px;
+    }
+    .start { background:#0f0; color:#000; }
+    .pause { background:#f00; color:#fff; }
+    .status { 
+      margin-top:20px; 
+      font-size:1rem; 
+      display:flex; 
+      flex-wrap:wrap; 
+      justify-content:center; 
+    }
+    .status span { 
+      display:block; 
+      margin:5px 10px; 
+    }
+    .result-box { 
+      margin-top:20px; 
+      background:#222; 
+      padding:10px; 
+      border-radius:5px; 
+      max-height:200px; 
+      overflow-y:auto; 
+      text-align:left; 
+      width:100%; 
+      max-width:600px;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    .copy-btn { 
+      margin-top:10px; 
+      padding:10px 20px; 
+      background:#0f0; 
+      color:#000; 
+      border:none; 
+      border-radius:5px; 
+      cursor:pointer; 
+      font-weight:bold; 
+      font-size:1rem;
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size:1.5rem; }
+      .btn { font-size:0.9rem; padding:8px 16px; }
+      .copy-btn { font-size:0.9rem; padding:8px 16px; }
+      .status { font-size:0.9rem; }
+      textarea { font-size:13px; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Checker Raridade</h1>
+
+<textarea id="inputData" placeholder="4111111111111111 | 12 | 25 | 123"></textarea><br>
+
+<div style="display:flex; justify-content:center; flex-wrap:wrap;">
+  <button class="btn start" onclick="startChecker()">INICIAR</button>
+  <button class="btn pause" onclick="pauseChecker()">PAUSAR</button>
+</div>
+
+<div class="status">
+  <span>Status: <strong id="status">Aguardando início</strong></span>
+  <span>Carregadas: <strong id="loaded">0</strong></span>
+  <span>Testadas: <strong id="tested">0</strong></span>
+  <span>Aprovadas: <strong id="approved">0</strong></span>
+  <span>Reprovadas: <strong id="rejected">0</strong></span>
+</div>
+
+<div class="result-box" id="approvedBox"></div>
+<button class="copy-btn" onclick="copyApproved()">Copiar</button>
+
+<script>
+  let isRunning = false;
+  let index = 0;
+  let entries = [];
+  const approvedList = [];
+
+  function log(msg, type = "info") {
+    const logMessage = document.createElement("div");
+    logMessage.textContent = msg;
+    if (type === "error") logMessage.style.color = "red";
+    else if (type === "success") logMessage.style.color = "#0f0";
+    else logMessage.style.color = "#fff";
+    document.body.appendChild(logMessage);
+    console.log(msg);
+  }
+
+  function startChecker() {
+    if (isRunning) return;
+    isRunning = true;
+    document.getElementById("status").textContent = "Testando...";
+    entries = document.getElementById("inputData").value
+      .trim()
+      .split("\n")
+      .filter(l => l.trim().length > 0);
+    document.getElementById("loaded").textContent = entries.length;
+    index = 0;
+    log(`🔹 Início do teste com ${entries.length} cartões`);
+    testNext();
+  }
+
+  function pauseChecker() {
+    isRunning = false;
+    document.getElementById("status").textContent = "Pausado";
+    log("⏸️ Teste pausado");
+  }
+
+  async function testNext() {
+    if (!isRunning || index >= entries.length) {
+      document.getElementById("status").textContent = "Finalizado";
+      log("✅ Teste finalizado");
+      return;
+    }
+
+    const parts = entries[index].split("|").map(x => x.trim());
+    const cardNumber = parts[0];
+    const exp_month = parseInt(parts[1], 10);
+    const exp_year = parseInt(parts[2], 10);
+    const security_code = parts[3];
+
+    log(`🔎 Testando cartão: ${cardNumber} - Expiração: ${exp_month}/${exp_year}`);
+
+    try {
+      const res = await fetch("http://localhost:3000/api/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_number: cardNumber,
+          expiration_month: exp_month,
+          expiration_year: exp_year,
+          security_code: security_code,
+          cardholder: { 
+            name: "Nome do Titular",
+            identification: { type: "CPF", number: "12345678900" }
+          },
+          email: "checker@teste.com",
+          amount: 100.00,
+          cpfCnpj: "32182991018",
+          phone: "11920718018"
+        })
+      });
+
+      const text = await res.text();
+      let result;
+      try { result = JSON.parse(text); } catch (err) {
+        log("❌ Backend não retornou JSON válido:", "error");
+        log(text, "error");
+        const rej = parseInt(document.getElementById("rejected").textContent, 10) || 0;
+        document.getElementById("rejected").textContent = (rej + 1).toString();
+        index++;
+        setTimeout(testNext, 800);
+        return;
+      }
+
+      log("📤 Resposta do backend:", result);
+      document.getElementById("tested").textContent = (index + 1).toString();
+
+      if (result.status === "approved" || result.status === "authorized") {
+        approvedList.push(entries[index]);
+        document.getElementById("approved").textContent = approvedList.length.toString();
+        document.getElementById("approvedBox").innerHTML += `<div>✅ ${entries[index]}</div>`;
+        log(`✅ Cartão aprovado: ${entries[index]}`, "success");
+      } else {
+        const rej = parseInt(document.getElementById("rejected").textContent, 10) || 0;
+        document.getElementById("rejected").textContent = (rej + 1).toString();
+        log(`❌ Cartão reprovado: ${entries[index]}`, "error");
+      }
+
+    } catch (err) {
+      const rej = parseInt(document.getElementById("rejected").textContent, 10) || 0;
+      document.getElementById("rejected").textContent = (rej + 1).toString();
+      log("❌ Erro ao processar o cartão: " + err, "error");
+    }
+
+    index++;
+    setTimeout(testNext, 800);
+  }
+
+  function copyApproved() {
+    navigator.clipboard.writeText(approvedList.join("\n"));
+    alert("Aprovadas copiadas!");
+    log(`📋 Aprovadas copiadas: ${approvedList.join("\n")}`);
+  }
+</script>
+
+</body>
+</html>
