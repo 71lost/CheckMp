@@ -161,7 +161,7 @@
     log(`🔎 Testando cartão: ${cardNumber} - Expiração: ${exp_month}/${exp_year}`);
 
     try {
-      const res = await fetch("http://localhost:3000/api/cards", {
+      const res = await fetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
