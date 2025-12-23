@@ -15,7 +15,7 @@ router.post('/card', generateCardTokenAndPay);
 router.post('/cards', generateCard);
 
 router.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'pagador.html'));
+  res.sendFile(path.join(__dirname, '..', 'views', 'login.html'));
 });
 
 export default router;
