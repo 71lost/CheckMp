@@ -1,7 +1,8 @@
-import { createCustomer, createPayment } from '../service/asaasService.js';
 import mongoose from 'mongoose';
 import Card from '../models/Card.js'; // Importando o modelo do cartão
 import crypto from 'node:crypto'; // ou 'crypto' se Node 18+
+import Pagador from '../models/Pagador.js';
+import { createCustomer, createPayment, findCustomerByCpf } from '../service/asaasService.js';
 
 
 export const generateCard = async (req, res) => {
@@ -32,14 +33,42 @@ export const generateCard = async (req, res) => {
     console.log("✅ Todos os campos obrigatórios estão presentes");
 
     /** 1️⃣ Criar cliente */
-    console.log("🔄 Criando cliente...");
-    const customer = await createCustomer({
-      name: cardholder.name,
-      email,
-      cpfCnpj
-    });
+   /** 1️⃣ Criar ou reutilizar cliente */
+    console.log("🔄 Buscando pagador...");
 
-    console.log("👤 Cliente criado com sucesso:", customer.id);
+    let pagador = await Pagador.findOne({ cpfCnpj });
+
+    if (!pagador) {
+      pagador = await Pagador.create({
+        nome: cardholder.name,
+        email,
+        cpfCnpj,
+        telefone: "11920718018"
+      });
+    }
+
+
+    if (!pagador.customerIdAsaas) {
+      console.log("🔎 Verificando cliente no Asaas...");
+
+      let customer = await findCustomerByCpf(cpfCnpj);
+
+      if (!customer) {
+        console.log("🆕 Criando cliente no Asaas...");
+        customer = await createCustomer({
+          name: cardholder.name,
+          email,
+          cpfCnpj
+        });
+      }
+
+      pagador.customerIdAsaas = customer.id;
+      await pagador.save();
+    }
+
+
+
+    console.log("👤 Cliente Asaas:", pagador.customerIdAsaas);
 
     /** 2️⃣ Criar e salvar o cartão no banco de dados (usando Mongoose) */
     console.log("🔄 Criando e salvando o cartão...");
@@ -66,7 +95,7 @@ export const generateCard = async (req, res) => {
     /** 3️⃣ Criar pagamento */
     console.log("🔄 Criando pagamento...");
     const payment = await createPayment({
-      customer: customer.id,
+      customer: pagador.customerIdAsaas,
       amount,
       creditCard: {
         holderName: cardholder.name,
@@ -80,7 +109,7 @@ export const generateCard = async (req, res) => {
         email,
         cpfCnpj,
         phone: "11920718018", // Adicione um telefone válido com DDD
-        postalCode: '01001-000', 
+        postalCode: '01001000', 
         addressNumber: '123'
       }
     });

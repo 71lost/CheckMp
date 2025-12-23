@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dados do Pagador</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #ffffff;
+      width: 100%;
+      max-width: 400px;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 15px 40px rgba(0,0,0,.25);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #111827;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    input {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 15px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    button {
+      margin-top: 10px;
+      background: #2563eb;
+      color: #fff;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Dados do Pagador</h2>
+
+  <form id="pagadorForm">
+    <input type="text" id="nome" placeholder="Nome completo" required />
+    <input type="text" id="cpfCnpj" placeholder="CPF" required />
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="tel" id="telefone" placeholder="Telefone" required />
+
+    <button type="submit">Continuar</button>
+  </form>
+</div>
+
+<script>
+  document.getElementById('pagadorForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const pagador = {
+      nome: document.getElementById('nome').value.trim(),
+      cpfCnpj: document.getElementById('cpfCnpj').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      telefone: document.getElementById('telefone').value.trim()
+    };
+
+    // validação simples
+    if (!pagador.nome || !pagador.cpfCnpj || !pagador.email || !pagador.telefone) {
+      alert('Preencha todos os campos');
+      return;
+    }
+
+    // salva temporariamente
+    localStorage.setItem('pagador', JSON.stringify(pagador));
+
+    // redireciona para próxima página
+    window.location.href = 'login.html';
+  });
+</script>
+
+</body>
+</html>

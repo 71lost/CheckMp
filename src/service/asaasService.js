@@ -59,3 +59,11 @@ export const createPayment = async ({ customer, amount, creditCard, creditCardHo
     throw error;
   }
 };
+
+export const findCustomerByCpf = async (cpfCnpj) => {
+  const response = await api.get('/customers', {
+    params: { cpfCnpj }
+  });
+
+  return response.data?.data?.[0] || null;
+};
